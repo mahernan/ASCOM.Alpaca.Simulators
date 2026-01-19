@@ -551,8 +551,9 @@ namespace OmniSim.LocalServer
         /// Using the list of COM object types generated during dynamic assembly loading, this method registers each driver for COM and registers it for ASCOM.
         /// It also adds DCOM info for the local server itself, so it can be activated via an outbound connection from TheSky.
         /// </remarks>
-        public static void RegisterObjects()
+        public static void RegisterObjects(string caller)
         {
+            TL.LogMessage("RegisterObjects", $"Entered  RegisterObjects, Called from: {caller}, Thread ID: {Environment.CurrentManagedThreadId}.");
             if (!ASCOM_Installed)
             {
                 TL.LogMessage("RegisterObjects", $"No ASCOM Found, Cannot register because the ASCOM Platform was not found.");
@@ -665,7 +666,7 @@ namespace OmniSim.LocalServer
                 if (bFail) break;
             }
 
-            TL.LogMessage("RegisterObjects", "Calling ElevateCOMProxy(/register)...");
+            TL.LogMessage("RegisterObjects", $"Calling ElevateCOMProxy(/register), Managed thread ID: {Environment.CurrentManagedThreadId}...");
             ElevateCOMProxy("/register");
             TL.LogMessage("RegisterObjects", "Returned from ElevateCOMProxy(/register).");
         }
@@ -776,7 +777,7 @@ namespace OmniSim.LocalServer
             processStartInfo.Verb = "runas";
             try
             {
-                TL.LogMessage("ElevateCOMProxy", $"Starting elevated COMProxy process...");
+                TL.LogMessage("ElevateCOMProxy", $"Starting elevated COMProxy process, Managed thread ID: {Environment.CurrentManagedThreadId}...");
                 Process.Start(processStartInfo);
                 TL.LogMessage("ElevateCOMProxy", $"COMProxy process stated OK.");
             }
@@ -873,7 +874,7 @@ namespace OmniSim.LocalServer
                     case "-regserver": // Emulate VB6
                     case @"/regserver":
                         TL.LogMessage("ProcessArguments", $"Registering drivers: {args[0]}");
-                        RegisterObjects(); // Register each served object
+                        RegisterObjects(nameof(ProcessAllArguments)); // Register each served object
                         returnStatus = false; // Terminate on return
                         break;
 
@@ -917,16 +918,17 @@ namespace OmniSim.LocalServer
         public static bool ProcessAllArguments(string[] args)
         {
             bool returnStatus = true;
-            TL.LogMessage("ProcessAllArguments", $"Entered ProcessAllArguments");
+            TL.LogMessage("ProcessAllArguments", $"Entered ProcessAllArguments - ThreadID: {Environment.CurrentManagedThreadId}");
 
             if (args.Length > 0)
             {
-                foreach (var arg in args)
+                foreach (string arg in args)
                 {
-                    switch (args[0].ToLower())
+                    TL.LogMessage("ProcessAllArguments", $"Processing argument: {arg}");
+                    switch (arg.ToLower())
                     {
                         case "-embedding":
-                            TL.LogMessage("ProcessAllArguments", $"Started by COM: {args[0]}");
+                            TL.LogMessage("ProcessAllArguments", $"Started by COM: {arg}");
                             startedByCOM = true; // Indicate COM started us and continue
                             returnStatus = true; // Continue on return
                             break;
@@ -935,8 +937,8 @@ namespace OmniSim.LocalServer
                         case @"/register":
                         case "-regserver": // Emulate VB6
                         case @"/regserver":
-                            TL.LogMessage("ProcessAllArguments", $"Registering drivers: {args[0]}");
-                            RegisterObjects(); // Register each served object
+                            TL.LogMessage("ProcessAllArguments", $"Registering drivers: {arg}");
+                            RegisterObjects(nameof(ProcessAllArguments)); // Register each served object
                             returnStatus = false; // Terminate on return
                             break;
 
@@ -963,7 +965,7 @@ namespace OmniSim.LocalServer
                 TL.LogMessage("ProcessAllArguments", $"No arguments supplied");
             }
 
-            TL.LogMessage("ProcessAllArguments", $"EntExiting ProcessAllArguments with return status {returnStatus} ({(returnStatus?"Continue running.":"Terminate application")})");
+            TL.LogMessage("ProcessAllArguments", $"Exiting ProcessAllArguments with return status {returnStatus} ({(returnStatus?"Continue running.":"Terminate application")})");
             return returnStatus;
         }
 

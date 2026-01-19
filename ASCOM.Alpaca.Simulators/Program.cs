@@ -203,9 +203,11 @@ namespace ASCOM.Alpaca.Simulators
         private static Task InitServers(string[] args)
         {
             ASCOM.Alpaca.Logging.AttachLogger(Logging.Log);
+            WriteAndLog("Attached logger, loading configuration...");
 
             //Load configuration
             DeviceManager.LoadConfiguration(new AlpacaConfiguration());
+            WriteAndLog("Loaded configuration, loading devices...");
 
             //Load devices
             DriverManager.LoadCamera(0);
@@ -263,7 +265,10 @@ namespace ASCOM.Alpaca.Simulators
 #if ASCOM_COM
                     if (OperatingSystem.IsWindows())
                     {
+                        WriteAndLog("Operating system is Windows, calling OmniSim.LocalServer.Server.InitServer().");
+
                         OmniSim.LocalServer.Server.InitServer();
+                        WriteAndLog("Initialisation complete, assigning devices...");
                         OmniSim.LocalServer.Drivers.Camera.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetCamera(0);
                         OmniSim.LocalServer.Drivers.CoverCalibrator.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetCoverCalibrator(0);
                         OmniSim.LocalServer.Drivers.Dome.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetDome(0);
@@ -274,18 +279,23 @@ namespace ASCOM.Alpaca.Simulators
                         OmniSim.LocalServer.Drivers.SafetyMonitor.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetSafetyMonitor(0);
                         OmniSim.LocalServer.Drivers.Switch.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetSwitch(0);
                         OmniSim.LocalServer.Drivers.Telescope.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetTelescope(0);
+                        WriteAndLog("Devices assigned, processing any COM registration commands...");
 
                         // Process any COM registration command line arguments
                         if (!OmniSim.LocalServer.Server.ProcessAllArguments(args))
                         {
                             // There were COM registration command line arguments so terminate this application.
+                            WriteAndLog("Found registration commands, exiting environment.");
                             Environment.Exit(0);
                         }
 
+                        WriteAndLog("Starting Local server process...");
                         OmniSim.LocalServer.Server.StartServer();
+                        WriteAndLog("Local server process started.");
                     }
 #endif
                     // Start and run the Blazor OmniSim application
+                    WriteAndLog("Creating and running the Blazor server.");
                     CreateHostBuilder(args).Build().Run();
                 }
                 catch (OperationCanceledException)
