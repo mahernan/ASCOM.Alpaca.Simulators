@@ -97,21 +97,18 @@ namespace OmniSim.LocalServer
         public static void InitServer()
         {
             // Create a trace logger for the local server.
-            TL = new TraceLogger("OmniSim.LocalServer", false)
+            TL = new TraceLogger("OmniSim.LocalServer.Init", false)
             {
                 Enabled = true // Enable to debug local server operation (not usually required). Drivers have their own independent trace loggers.
             };
-            TL.LogMessage("Main", $"Server started");
+
+            TL.LogMessage("InitServer", $"Application is running as a {(Environment.Is64BitProcess?"64":"32")}bit process.");
 
             // Load driver COM assemblies and get types, ending the program if something goes wrong.
-            TL.LogMessage("Main", $"Loading drivers");
+            TL.LogMessage("InitServer", $"Loading drivers");
             if (!PopulateListOfAscomDrivers()) return;
 
-            // Process command line arguments e.g. to Register/Unregister drivers, ending the program if required.
-            TL.LogMessage("Main", $"Processing command-line arguments");
-            //if (!ProcessArguments(args)) return;
-
-            // Start the message loop to serialize incoming calls to the served driver COM objects.
+            TL.LogMessage("InitServer", $"Initialisation complete.");
         }
 
         public static void StartServer()
@@ -558,7 +555,7 @@ namespace OmniSim.LocalServer
         {
             if (!ASCOM_Installed)
             {
-                TL.LogMessage("No ASCOM Found", $"Cannot register because the ASCOM Platform was not found.");
+                TL.LogMessage("RegisterObjects", $"No ASCOM Found, Cannot register because the ASCOM Platform was not found.");
                 NativeMethods.MessageBox(System.IntPtr.Zero, "Cannot register because the ASCOM Platform was not found", "No ASCOM Found", 0);
                 return;
             }
@@ -566,7 +563,9 @@ namespace OmniSim.LocalServer
             // Request administrator privilege if we don't already have it
             if (!IsAdministrator)
             {
+                TL.LogMessage("RegisterObjects", $"Not running as administrator, calling ElevateSelf...");
                 ElevateSelf("/register");
+                TL.LogMessage("RegisterObjects", $"Returned from ElevateSelf.");
                 return;
             }
 
@@ -666,7 +665,9 @@ namespace OmniSim.LocalServer
                 if (bFail) break;
             }
 
+            TL.LogMessage("RegisterObjects", "Calling ElevateCOMProxy(/register)...");
             ElevateCOMProxy("/register");
+            TL.LogMessage("RegisterObjects", "Returned from ElevateCOMProxy(/register).");
         }
 
         /// <summary>
@@ -742,19 +743,21 @@ namespace OmniSim.LocalServer
             processStartInfo.Verb = "runas";
             try
             {
-                TL.LogMessage("IsAdministrator", $"Starting elevated process");
+                TL.LogMessage("ElevateSelf", $"Starting elevated process...");
                 Process.Start(processStartInfo);
+                TL.LogMessage("ElevateSelf", $"Elevated process started.");
             }
             catch (System.ComponentModel.Win32Exception)
             {
-                TL.LogMessage("IsAdministrator", $"The OmniSim was not " + (argument == "/register" ? "registered" : "unregistered") + " because you did not allow it.");
+                TL.LogMessage("ElevateSelf", $"The OmniSim was not " + (argument == "/register" ? "registered" : "unregistered") + " because you did not allow it.");
                 NativeMethods.MessageBox(System.IntPtr.Zero, $"The OmniSim was not " + (argument == "/register" ? "registered" : "unregistered") + " because you did not allow it.", "OmniSim COM", 0);
             }
             catch (Exception ex)
             {
-                TL.LogMessage("IsAdministrator", $"Exception: {ex}");
+                TL.LogMessage("ElevateSelf", $"Exception: {ex}");
                 NativeMethods.MessageBox(System.IntPtr.Zero, ex.ToString(), "OmniSim COM", 0);
             }
+            TL.LogMessage("ElevateSelf", $"Existing ElevateSelf.");
             return;
         }
 
@@ -773,8 +776,9 @@ namespace OmniSim.LocalServer
             processStartInfo.Verb = "runas";
             try
             {
-                TL.LogMessage("ElevateCOMProxy", $"Starting elevated COMProxy process");
+                TL.LogMessage("ElevateCOMProxy", $"Starting elevated COMProxy process...");
                 Process.Start(processStartInfo);
+                TL.LogMessage("ElevateCOMProxy", $"COMProxy process stated OK.");
             }
             catch (System.ComponentModel.Win32Exception e)
             {
@@ -786,10 +790,12 @@ namespace OmniSim.LocalServer
                 TL.LogMessage("ElevateCOMProxy", $"Exception: {ex}");
                 NativeMethods.MessageBox(System.IntPtr.Zero, ex.ToString(), "OmniSim COM", 0);
             }
+
+            TL.LogMessage("ElevateCOMProxy", $"Leaving ElevateCOMProxy method.");
             return;
         }
 
-        #endregion COM Registration and Unregistration
+        #endregion COM Registration and Un-registration
 
         #region Class Factory Support
 
@@ -896,9 +902,22 @@ namespace OmniSim.LocalServer
             return returnStatus;
         }
 
+        /// <summary>
+        /// Processes command-line arguments to perform registration, unregistration, or COM startup actions as
+        /// specified.
+        /// </summary>
+        /// <remarks>If no arguments are supplied, the method does not perform any registration or
+        /// un-registration actions. The method is typically called at application startup to handle command-line options
+        /// for COM registration scenarios.</remarks>
+        /// <param name="args">An array of command-line arguments to process. Supported arguments include "-register", "/register",
+        /// "-regserver", "/regserver" for registration; "-unregister", "/unregister", "-unregserver", "/unregserver"
+        /// for un-registration; and "-embedding" for COM startup.</param>
+        /// <returns>true if the application should continue running after processing the arguments; otherwise, false if the
+        /// application should terminate.</returns>
         public static bool ProcessAllArguments(string[] args)
         {
             bool returnStatus = true;
+            TL.LogMessage("ProcessAllArguments", $"Entered ProcessAllArguments");
 
             if (args.Length > 0)
             {
@@ -907,7 +926,7 @@ namespace OmniSim.LocalServer
                     switch (args[0].ToLower())
                     {
                         case "-embedding":
-                            TL.LogMessage("ProcessArguments", $"Started by COM: {args[0]}");
+                            TL.LogMessage("ProcessAllArguments", $"Started by COM: {args[0]}");
                             startedByCOM = true; // Indicate COM started us and continue
                             returnStatus = true; // Continue on return
                             break;
@@ -916,7 +935,7 @@ namespace OmniSim.LocalServer
                         case @"/register":
                         case "-regserver": // Emulate VB6
                         case @"/regserver":
-                            TL.LogMessage("ProcessArguments", $"Registering drivers: {args[0]}");
+                            TL.LogMessage("ProcessAllArguments", $"Registering drivers: {args[0]}");
                             RegisterObjects(); // Register each served object
                             returnStatus = false; // Terminate on return
                             break;
@@ -925,7 +944,7 @@ namespace OmniSim.LocalServer
                         case @"/unregister":
                         case "-unregserver": // Emulate VB6
                         case @"/unregserver":
-                            TL.LogMessage("ProcessArguments", $"Unregistering drivers: {args[0]}");
+                            TL.LogMessage("ProcessAllArguments", $"Un-registering drivers: {args[0]}");
                             UnregisterObjects(); //Unregister each served object
                             returnStatus = false; // Terminate on return
                             break;
@@ -941,9 +960,10 @@ namespace OmniSim.LocalServer
             else
             {
                 startedByCOM = false;
-                TL.LogMessage("ProcessArguments", $"No arguments supplied");
+                TL.LogMessage("ProcessAllArguments", $"No arguments supplied");
             }
 
+            TL.LogMessage("ProcessAllArguments", $"EntExiting ProcessAllArguments with return status {returnStatus} ({(returnStatus?"Continue running.":"Terminate application")})");
             return returnStatus;
         }
 
