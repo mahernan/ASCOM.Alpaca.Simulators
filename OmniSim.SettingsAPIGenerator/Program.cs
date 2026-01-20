@@ -62,10 +62,12 @@ namespace OmniSim.SettingsAPIGenerator
             // Generate API for FilterWheel
             foreach (var prop in SettingsHelpers.GetSettingsProperties(DriverType))
             {
-                dynamic setting = prop.GetValue(Activator.CreateInstance(DriverType));
-
-                builder.AppendLine(GetSettingRaw(DeviceType, setting.Key, setting.Description, setting.Value.GetType().ToString(), GetResponseType(setting.Value.GetType()), $"{AccessString}.{prop.Name}.Value"));
-                builder.AppendLine(PutSettingRaw(DeviceType, setting.Key, setting.Description, setting.Value.GetType().ToString(), $"{AccessString}.{prop.Name}.Value = {setting.Key};"));
+                dynamic? setting = prop.GetValue(Activator.CreateInstance(DriverType));
+                if (setting != null)
+                {
+                    builder.AppendLine(GetSettingRaw(DeviceType, setting.Key, setting.Description, setting.Value.GetType().ToString(), GetResponseType(setting.Value.GetType()), $"{AccessString}.{prop.Name}.Value"));
+                    builder.AppendLine(PutSettingRaw(DeviceType, setting.Key, setting.Description, setting.Value.GetType().ToString(), $"{AccessString}.{prop.Name}.Value = {setting.Key};"));
+                }
             }
 
             builder.AppendLine("}");
@@ -108,7 +110,7 @@ namespace OmniSim.SettingsAPIGenerator
                 return typeof(IntResponse).ToString();
             }
             throw new Exception($"Unknown Type {t}");
-            
+
         }
 
         private static string Usings = @"//DO NOT EDIT, AUTO-GENORATED
@@ -134,7 +136,7 @@ using System.Net.Mime;
 
         private static string GetSettingRaw(string device, string key, string description, string type, string responsetype, string command)
         {
-            return 
+            return
                 $"        /// <summary>\r\n" +
                 $"        /// OmniSim Only - {description}\r\n" +
                 $"        /// </summary>\r\n" +
