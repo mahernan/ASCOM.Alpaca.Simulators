@@ -145,7 +145,7 @@ namespace ASCOM.Alpaca.Simulators
                     // Show the tray icon
                     try
                     {
-                        if (OperatingSystem.IsWindows())
+                        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 0, 0))
                         {
                             var icon = Icon.ExtractAssociatedIcon(System.Environment.ProcessPath);
                             trayIcon = new TrayIconWithContextMenu
@@ -154,22 +154,24 @@ namespace ASCOM.Alpaca.Simulators
                                 ToolTip = "ASCOM OmniSim",
                             };
 
-
                             trayIcon.ContextMenu = new PopupMenu
                             {
                                 Items =
-    {
-        new PopupMenuItem("Show Browser UI", (_, _) => StartBrowser(ServerSettings.ServerPort)),
-        new PopupMenuSeparator(),
-        new PopupMenuItem("Show Console", (_, _) => ShowConsole(ConsoleDisplayOption.StartNormally)),
-        new PopupMenuItem("Hide Console", (_, _) => ShowConsole(ConsoleDisplayOption.NoConsole)),
-        new PopupMenuSeparator(),
-        new PopupMenuItem("Exit", (_, _) =>
-        {
-            trayIcon.Dispose();
-            Startup.Lifetime.StopApplication();
-        }),
-    },
+                                {
+                                    new PopupMenuItem("Show Browser UI", (_, _) => StartBrowser(ServerSettings.ServerPort)),
+                                    new PopupMenuSeparator(),
+                                    new PopupMenuItem("Show Console", (_, _) => ShowConsole(ConsoleDisplayOption.StartNormally)),
+                                    new PopupMenuItem("Hide Console", (_, _) => ShowConsole(ConsoleDisplayOption.NoConsole)),
+                                    new PopupMenuSeparator(),
+                                    new PopupMenuItem("Exit", (_, _) =>
+                                    {
+                                        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 0, 0))
+                                        {
+                                            trayIcon.Dispose();
+                                        }
+                                        Startup.Lifetime.StopApplication();
+                                    }),
+                                },
                             };
                             trayIcon.Create();
                         }
@@ -203,11 +205,11 @@ namespace ASCOM.Alpaca.Simulators
         private static Task InitServers(string[] args)
         {
             ASCOM.Alpaca.Logging.AttachLogger(Logging.Log);
-            WriteAndLog("Attached logger, loading configuration...");
+            Logging.LogInformation("Attached logger, loading configuration...");
 
             //Load configuration
             DeviceManager.LoadConfiguration(new AlpacaConfiguration());
-            WriteAndLog("Loaded configuration, loading devices...");
+            Logging.LogInformation("Loaded configuration, loading devices...");
 
             //Load devices
             DriverManager.LoadCamera(0);
@@ -220,6 +222,7 @@ namespace ASCOM.Alpaca.Simulators
             DriverManager.LoadSafetyMonitors();
             DriverManager.LoadSwitch(0);
             DriverManager.LoadTelescope(0);
+            Logging.LogInformation("Devices loaded OK.");
 
             //Add the --urls argument for IHostBuilder
             if (!args?.Any(str => str.Contains("--urls")) ?? true)
@@ -229,7 +232,7 @@ namespace ASCOM.Alpaca.Simulators
                     args = new string[0];
                 }
 
-                WriteAndLog("No startup url args detected, binding to saved server settings.");
+                Logging.LogInformation("No startup url args detected, binding to saved server settings.");
 
                 var temparray = new string[args.Length + 1];
 
@@ -249,7 +252,7 @@ namespace ASCOM.Alpaca.Simulators
 
                 startupURLArg += ":" + ServerSettings.ServerPort;
 
-                WriteAndLog("Startup URL args: " + startupURLArg);
+                Logging.LogInformation("Startup URL args: " + startupURLArg);
 
                 temparray[args.Length] = startupURLArg;
 
@@ -265,10 +268,10 @@ namespace ASCOM.Alpaca.Simulators
 #if ASCOM_COM
                     if (OperatingSystem.IsWindows())
                     {
-                        WriteAndLog("Operating system is Windows, calling OmniSim.LocalServer.Server.InitServer().");
+                        Logging.LogInformation("Operating system is Windows, calling OmniSim.LocalServer.Server.InitServer().");
 
                         OmniSim.LocalServer.Server.InitServer();
-                        WriteAndLog("Initialisation complete, assigning devices...");
+                        Logging.LogInformation("Initialisation complete, assigning devices...");
                         OmniSim.LocalServer.Drivers.Camera.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetCamera(0);
                         OmniSim.LocalServer.Drivers.CoverCalibrator.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetCoverCalibrator(0);
                         OmniSim.LocalServer.Drivers.Dome.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetDome(0);
@@ -279,23 +282,23 @@ namespace ASCOM.Alpaca.Simulators
                         OmniSim.LocalServer.Drivers.SafetyMonitor.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetSafetyMonitor(0);
                         OmniSim.LocalServer.Drivers.Switch.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetSwitch(0);
                         OmniSim.LocalServer.Drivers.Telescope.DeviceAccess = () => ASCOM.Alpaca.DeviceManager.GetTelescope(0);
-                        WriteAndLog("Devices assigned, processing any COM registration commands...");
+                        Logging.LogInformation("Devices assigned, processing any COM registration commands...");
 
                         // Process any COM registration command line arguments
                         if (!OmniSim.LocalServer.Server.ProcessAllArguments(args))
                         {
                             // There were COM registration command line arguments so terminate this application.
-                            WriteAndLog("Found registration commands, exiting environment.");
+                            Logging.LogInformation("Found registration commands, exiting environment.");
                             Environment.Exit(0);
                         }
 
-                        WriteAndLog("Starting Local server process...");
+                        Logging.LogInformation("Starting Local server process...");
                         OmniSim.LocalServer.Server.StartServer();
-                        WriteAndLog("Local server process started.");
+                        Logging.LogInformation("Local server process started.");
                     }
 #endif
                     // Start and run the Blazor OmniSim application
-                    WriteAndLog("Creating and running the Blazor server.");
+                    Logging.LogInformation("Creating and running the Blazor server.");
                     CreateHostBuilder(args).Build().Run();
                 }
                 catch (OperationCanceledException)
@@ -395,8 +398,8 @@ namespace ASCOM.Alpaca.Simulators
 
         private static void PrintStartupInformation()
         {
-            WriteAndLog($"{ServerSettings.ServerName} version {ServerSettings.ServerVersion}");
-            WriteAndLog($"Running on: {RuntimeInformation.OSDescription}.");
+            Logging.LogInformation($"{ServerSettings.ServerName} version {ServerSettings.ServerVersion}");
+            Logging.LogInformation($"Running on: {RuntimeInformation.OSDescription}.");
         }
 
         /// <summary>
