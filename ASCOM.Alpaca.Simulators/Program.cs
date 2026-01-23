@@ -393,7 +393,11 @@ namespace ASCOM.Alpaca.Simulators
                 }
             }
 
-            return false;
+            if (args?.Any(str => str.Contains("--shutdown")) ?? false)
+            {
+                Environment.Exit(0);
+            }
+                return false;
         }
 
         private static void PrintStartupInformation()
