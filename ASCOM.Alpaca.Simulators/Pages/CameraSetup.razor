@@ -227,7 +227,17 @@
 
         <fieldset disabled="@Device.Connected">
             <legend>Simulated Image</legend>
-            <p>Coming Soon!</p>
+            <label for="ImageMode">Image mode</label>
+            <select id="ImageMode" @bind="ImageMode">
+                <option value="Normal">Normal simulation (M42)</option>
+                <option value="Replay">Replay PGM image</option>
+            </select>
+            <br>
+
+            <label for="ReplayImagePath">Replay PGM path</label>
+            <input type="text" id="ReplayImagePath" size="60" @bind="ReplayImagePath">
+            <br>
+            <small>Replay supports one full-frame binary P5 PGM at BinX=1 and BinY=1.</small>
         </fieldset>
 
         <fieldset disabled="@Device.Connected">
@@ -347,6 +357,10 @@
             OffsetMax = Device.offsetMax;
 
             CanPulseGuide = Device.canPulseGuide;
+
+            ImageMode = Device.useCustomImage ? "Replay" : "Normal";
+
+            ReplayImagePath = Device.replayImagePath;
 
             CanImageBytes = ServerSettings.AllowImageBytesDownload;
         }
@@ -566,6 +580,10 @@
         set;
     }
 
+    string ImageMode { get; set; }
+
+    string ReplayImagePath { get; set; }
+
     #endregion
 
     public void Reset()
@@ -592,6 +610,17 @@
     {
         try
         {
+            ASCOM.Simulators.PgmReplaySource replayImage = null;
+            bool useReplayImage = ImageMode == "Replay";
+            if (useReplayImage)
+            {
+                replayImage = ASCOM.Simulators.PgmReplaySource.Load(ReplayImagePath);
+                CCDWidth = replayImage.Width;
+                CCDHeight = replayImage.Height;
+                MaxADU = replayImage.MaxValue;
+                SensorType = SensorType.Monochrome;
+            }
+
             if (PixelWidth <= 0)
             {
                 toastService.ShowWarning("The Pixel Width must be greater than 0.");
@@ -762,6 +791,10 @@
             Device.offsetMax = OffsetMax;
 
             Device.canPulseGuide = CanPulseGuide;
+
+            Device.useCustomImage = useReplayImage;
+
+            Device.replayImagePath = ReplayImagePath;
 
             Device.SaveToProfile();
 

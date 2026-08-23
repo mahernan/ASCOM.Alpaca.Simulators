@@ -29,11 +29,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup")]
-        public ActionResult<string> ServerSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult ServerSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -49,11 +49,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/camera/{DeviceNumber}/setup")]
-        public ActionResult<string> CameraSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult CameraSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -69,11 +69,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/covercalibrator/{DeviceNumber}/setup")]
-        public ActionResult<string> CoverCalibratorSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult CoverCalibratorSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -89,11 +89,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/dome/{DeviceNumber}/setup")]
-        public ActionResult<string> DomeSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult DomeSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -109,11 +109,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/filterwheel/{DeviceNumber}/setup")]
-        public ActionResult<string> FilterWheelSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult FilterWheelSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -129,11 +129,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/focuser/{DeviceNumber}/setup")]
-        public ActionResult<string> FocuserSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult FocuserSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -149,11 +149,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/observingconditions/{DeviceNumber}/setup")]
-        public ActionResult<string> ObservingConditionsSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult ObservingConditionsSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -169,11 +169,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/rotator/{DeviceNumber}/setup")]
-        public ActionResult<string> RotatorSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult RotatorSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -189,11 +189,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/safetymonitor/{DeviceNumber}/setup")]
-        public ActionResult<string> SafetyMonitorSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult SafetyMonitorSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -209,11 +209,11 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/switch/{DeviceNumber}/setup")]
-        public ActionResult<string> SwitchSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult SwitchSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
 
         /// <summary>
@@ -229,11 +229,13 @@ namespace ASCOM.Alpaca.Simulators.Controllers
         /// <response code="500" examples="Error message describing why the command cannot be processed">Server internal error, check error message</response>
         [HttpGet]
         [Produces(MediaTypeNames.Text.Html)]
-        [FeatureGate("HideAlpacaUI")]
+        [FeatureGate(true, "HideAlpacaUI")]
         [Route("/setup/v1/telescope/{DeviceNumber}/setup")]
-        public ActionResult<string> TelescopeSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
+        public IActionResult TelescopeSetup([Required][DefaultValue(0)][SwaggerSchema(Strings.DeviceIDDescription, Format = "uint32")][Range(0, 4294967295)] uint DeviceNumber)
         {
-            return Ok(string.Empty);
+            return BlazorHost();
         }
+
+        private IActionResult BlazorHost() => View("~/Pages/_Host.cshtml");
     }
 }
