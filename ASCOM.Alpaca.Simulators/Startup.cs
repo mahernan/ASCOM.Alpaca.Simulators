@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.FeatureManagement;
 using System;
 using System.Globalization;
 using System.IO;
@@ -33,6 +34,7 @@ namespace ASCOM.Alpaca.Simulators
             services.AddRazorPages();
             services.AddServerSideBlazor();
             services.AddBlazoredToast();
+            services.AddFeatureManagement();
 
             var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
             var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);

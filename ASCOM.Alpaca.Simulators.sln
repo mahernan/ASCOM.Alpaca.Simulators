@@ -42,6 +42,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OmniSim.BaseDriver", "OmniS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OmniSim.SettingsAPIGenerator", "OmniSim.SettingsAPIGenerator\OmniSim.SettingsAPIGenerator.csproj", "{CEE0EFD0-9F43-4C4A-A5C0-D99B8F29E600}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Camera.Simulator.Tests", "Camera.Simulator.Tests\Camera.Simulator.Tests.csproj", "{D81B352D-D231-4EAF-B72C-B439E64F8A82}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -120,6 +122,10 @@ Global
 		{CEE0EFD0-9F43-4C4A-A5C0-D99B8F29E600}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CEE0EFD0-9F43-4C4A-A5C0-D99B8F29E600}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CEE0EFD0-9F43-4C4A-A5C0-D99B8F29E600}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D81B352D-D231-4EAF-B72C-B439E64F8A82}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D81B352D-D231-4EAF-B72C-B439E64F8A82}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D81B352D-D231-4EAF-B72C-B439E64F8A82}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D81B352D-D231-4EAF-B72C-B439E64F8A82}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

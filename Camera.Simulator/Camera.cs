@@ -52,6 +52,7 @@ using System.Threading.Tasks;
 using System.Timers;
 
 [assembly: InternalsVisibleTo("ASCOM.Alpaca.Simulators")]
+[assembly: InternalsVisibleTo("Camera.Simulator.Tests")]
 
 namespace ASCOM.Simulators
 {
@@ -287,6 +288,9 @@ namespace ASCOM.Simulators
 
         // simulation
         internal string imagePath;
+        internal string replayImagePath;
+        internal bool useCustomImage;
+        private PgmReplaySource replaySource;
 
         internal bool applyNoise;
         private float[,,] imageData;    // room for a 3 plane colour image
@@ -1027,7 +1031,10 @@ namespace ASCOM.Simulators
                 Log.LogMessage("Connected", "set {0}", value);
                 if (value & !connected) // We are connecting and are not already connected
                 {
-                    ReadImageFile();
+                    if (useCustomImage)
+                        LoadReplayImage();
+                    else
+                        ReadImageFile();
 
                     // Restore valid settings if necessary
                     imageReady = false;
@@ -1731,6 +1738,11 @@ namespace ASCOM.Simulators
         {
             Log.LogMessage("StartExposure", "Duration {0}, Light {1}", Duration, Light);
             CheckConnected("Can't set StartExposure when not connected");
+            if (useCustomImage && (binX != 1 || binY != 1 || startX != 0 || startY != 0 || numX != cameraXSize || numY != cameraYSize))
+            {
+                throw new ASCOM.InvalidValueException("Replay image frame", $"Bin={binX}x{binY}, Start={startX},{startY}, Size={numX}x{numY}",
+                    $"Bin=1x1, Start=0,0, Size={cameraXSize}x{cameraYSize}");
+            }
             // check the duration, light frames only
             if (Light && (Duration > exposureMax || Duration < exposureMin))
             {
@@ -2652,14 +2664,10 @@ namespace ASCOM.Simulators
             exposureResolution = Convert.ToDouble(Profile.GetValue(STR_ExposureResolution, "0.001"), CultureInfo.InvariantCulture);
 
             string fullPath = Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory);
-            if (Convert.ToBoolean(Profile.GetValue(STR_UseCustomImage, false.ToString())))
-            {
-                imagePath = Profile.GetValue(STR_ImagePath, Path.Combine(fullPath, @"m42-800x600.jpg"));
-            }
-            else
-            {
-                imagePath = Path.Combine(fullPath, @"m42-800x600.jpg");
-            }
+            string defaultImagePath = Path.Combine(fullPath, @"m42-800x600.jpg");
+            useCustomImage = Convert.ToBoolean(Profile.GetValue(STR_UseCustomImage, false.ToString()), CultureInfo.InvariantCulture);
+            replayImagePath = Profile.GetValue(STR_ImagePath, string.Empty);
+            imagePath = useCustomImage ? replayImagePath : defaultImagePath;
 
             applyNoise = Convert.ToBoolean(Profile.GetValue(STR_ApplyNoise, "false"), CultureInfo.InvariantCulture);
 
@@ -2774,7 +2782,8 @@ namespace ASCOM.Simulators
             Profile.WriteValue(STR_MaxExposure, exposureMax.ToString(CultureInfo.InvariantCulture));
             Profile.WriteValue(STR_MinExposure, exposureMin.ToString(CultureInfo.InvariantCulture));
             Profile.WriteValue(STR_ExposureResolution, exposureResolution.ToString(CultureInfo.InvariantCulture));
-            Profile.WriteValue(STR_ImagePath, imagePath);
+            Profile.WriteValue(STR_ImagePath, replayImagePath ?? string.Empty);
+            Profile.WriteValue(STR_UseCustomImage, useCustomImage.ToString(CultureInfo.InvariantCulture));
             Profile.WriteValue(STR_ApplyNoise, applyNoise.ToString(CultureInfo.InvariantCulture));
 
             Profile.WriteValue(STR_CanPulseGuide, canPulseGuide.ToString(CultureInfo.InvariantCulture));
@@ -2865,6 +2874,11 @@ namespace ASCOM.Simulators
         {
             ReadFromProfile();
 
+            if (useCustomImage)
+                LoadReplayImage();
+            else
+                replaySource = null;
+
             randomGenerator = new Random(); // Initialise the random fluctuation generator
 
             startX = 0;
@@ -2896,6 +2910,16 @@ namespace ASCOM.Simulators
             Log.LogMessage("InitialiseSimulator", "Set camera temperature to ambient: {0} with cooler constant {1} - Cooler mode: {2}", heatSinkTemperature, coolerConstant, coolerMode);
         }
 
+        internal void LoadReplayImage()
+        {
+            replaySource = PgmReplaySource.Load(replayImagePath);
+            cameraXSize = replaySource.Width;
+            cameraYSize = replaySource.Height;
+            maxADU = replaySource.MaxValue;
+            sensorType = SensorType.Monochrome;
+            imageData = null;
+        }
+
         private delegate int PixelProcess(double value);
 
         private void FillImageArray()
@@ -2904,6 +2928,16 @@ namespace ASCOM.Simulators
             imageArrayVariant = null;
             imageArrayVariantColour = null;
             GC.Collect();
+
+            if (useCustomImage)
+            {
+                if (replaySource == null)
+                    throw new ASCOM.InvalidOperationException("The replay PGM image has not been loaded.");
+                for (int y = 0; y < replaySource.Height; y++)
+                    for (int x = 0; x < replaySource.Width; x++)
+                        imageArray[x, y] = replaySource.Pixels[x, y];
+                return;
+            }
 
             PixelProcess pixelProcess = new PixelProcess(NoNoise);
             ShutterProcess shutterProcess = new ShutterProcess(BinData);
