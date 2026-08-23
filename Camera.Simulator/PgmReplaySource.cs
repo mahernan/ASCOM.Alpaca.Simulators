@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace ASCOM.Simulators
@@ -92,5 +93,100 @@ namespace ASCOM.Simulators
         }
 
         private static bool IsWhitespace(int value) => value is ' ' or '\t' or '\r' or '\n' or '\f';
+    }
+
+    internal enum ReplaySourceMode { Normal = 0, SingleImage = 1, Directory = 2 }
+
+    internal interface IReplaySource
+    {
+        int Width { get; }
+        int Height { get; }
+        int MaxValue { get; }
+        PgmReplaySource SelectNext();
+        void CompleteSelection();
+        void CancelSelection();
+    }
+
+    internal sealed class SinglePgmReplaySource : IReplaySource
+    {
+        private readonly PgmReplaySource image;
+        internal SinglePgmReplaySource(string path) => image = PgmReplaySource.Load(path);
+        public int Width => image.Width;
+        public int Height => image.Height;
+        public int MaxValue => image.MaxValue;
+        public PgmReplaySource SelectNext() => image;
+        public void CompleteSelection() { }
+        public void CancelSelection() { }
+    }
+
+    /// <summary>Provides P5 PGM files ordered by ordinal filename and advances only on completion.</summary>
+    internal sealed class PgmDirectoryReplaySource : IReplaySource
+    {
+        private readonly object sync = new object();
+        private readonly PgmReplaySource[] images;
+        private readonly bool loop;
+        private int nextIndex;
+        private bool selectionActive;
+
+        internal PgmDirectoryReplaySource(string directoryPath, bool loop)
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath))
+                throw new InvalidDataException("A replay PGM directory path is required.");
+            if (!Directory.Exists(directoryPath))
+                throw new InvalidDataException($"Replay PGM directory '{directoryPath}' does not exist.");
+
+            string[] paths;
+            try
+            {
+                paths = Directory.GetFiles(directoryPath, "*")
+                    .Where(path => string.Equals(Path.GetExtension(path), ".pgm", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
+                    .ToArray();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidDataException($"Unable to enumerate replay PGM directory '{directoryPath}': {ex.Message}", ex);
+            }
+            if (paths.Length == 0)
+                throw new InvalidDataException($"Replay PGM directory '{directoryPath}' contains no .pgm files.");
+
+            images = paths.Select(PgmReplaySource.Load).ToArray();
+            PgmReplaySource first = images[0];
+            for (int index = 1; index < images.Length; index++)
+                if (images[index].Width != first.Width || images[index].Height != first.Height || images[index].MaxValue != first.MaxValue)
+                    throw new InvalidDataException($"Replay PGM '{paths[index]}' is incompatible with '{paths[0]}'; width, height, and maxval must match.");
+            this.loop = loop;
+        }
+
+        public int Width => images[0].Width;
+        public int Height => images[0].Height;
+        public int MaxValue => images[0].MaxValue;
+
+        public PgmReplaySource SelectNext()
+        {
+            lock (sync)
+            {
+                if (selectionActive) throw new ASCOM.InvalidOperationException("A replay exposure is already in progress.");
+                if (nextIndex >= images.Length) throw new ASCOM.InvalidOperationException("No replay images remain in the configured directory.");
+                selectionActive = true;
+                return images[nextIndex];
+            }
+        }
+
+        public void CompleteSelection()
+        {
+            lock (sync)
+            {
+                if (!selectionActive) return;
+                nextIndex++;
+                if (loop && nextIndex == images.Length) nextIndex = 0;
+                selectionActive = false;
+            }
+        }
+
+        public void CancelSelection()
+        {
+            lock (sync) selectionActive = false;
+        }
     }
 }

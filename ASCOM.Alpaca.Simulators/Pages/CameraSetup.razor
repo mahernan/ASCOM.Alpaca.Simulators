@@ -230,14 +230,26 @@
             <label for="ImageMode">Image mode</label>
             <select id="ImageMode" @bind="ImageMode">
                 <option value="Normal">Normal simulation (M42)</option>
-                <option value="Replay">Replay PGM image</option>
+                <option value="Single">Single PGM image</option>
+                <option value="Directory">PGM directory</option>
             </select>
             <br>
 
             <label for="ReplayImagePath">Replay PGM path</label>
             <input type="text" id="ReplayImagePath" size="60" @bind="ReplayImagePath">
             <br>
-            <small>Replay supports one full-frame binary P5 PGM at BinX=1 and BinY=1.</small>
+
+            <label for="ReplayDirectoryPath">Replay PGM directory</label>
+            <input type="text" id="ReplayDirectoryPath" size="60" @bind="ReplayDirectoryPath">
+            <br>
+
+            <label for="ReplayEndBehavior">Directory end behavior</label>
+            <select id="ReplayEndBehavior" @bind="ReplayEndBehavior">
+                <option value="Loop">Loop</option>
+                <option value="Stop">Stop at end</option>
+            </select>
+            <br>
+            <small>Replay supports full-frame binary P5 PGM images at BinX=1 and BinY=1. Directory files are ordered by ordinal filename.</small>
         </fieldset>
 
         <fieldset disabled="@Device.Connected">
@@ -358,9 +370,16 @@
 
             CanPulseGuide = Device.canPulseGuide;
 
-            ImageMode = Device.useCustomImage ? "Replay" : "Normal";
+            ImageMode = Device.replayMode switch
+            {
+                ASCOM.Simulators.ReplaySourceMode.SingleImage => "Single",
+                ASCOM.Simulators.ReplaySourceMode.Directory => "Directory",
+                _ => "Normal"
+            };
 
             ReplayImagePath = Device.replayImagePath;
+            ReplayDirectoryPath = Device.replayDirectoryPath;
+            ReplayEndBehavior = Device.replayLoop ? "Loop" : "Stop";
 
             CanImageBytes = ServerSettings.AllowImageBytesDownload;
         }
@@ -584,6 +603,10 @@
 
     string ReplayImagePath { get; set; }
 
+    string ReplayDirectoryPath { get; set; }
+
+    string ReplayEndBehavior { get; set; }
+
     #endregion
 
     public void Reset()
@@ -611,13 +634,21 @@
         try
         {
             ASCOM.Simulators.PgmReplaySource replayImage = null;
-            bool useReplayImage = ImageMode == "Replay";
-            if (useReplayImage)
+            bool useReplayImage = ImageMode != "Normal";
+            if (ImageMode == "Single")
             {
                 replayImage = ASCOM.Simulators.PgmReplaySource.Load(ReplayImagePath);
                 CCDWidth = replayImage.Width;
                 CCDHeight = replayImage.Height;
                 MaxADU = replayImage.MaxValue;
+                SensorType = SensorType.Monochrome;
+            }
+            else if (ImageMode == "Directory")
+            {
+                var directory = new ASCOM.Simulators.PgmDirectoryReplaySource(ReplayDirectoryPath, ReplayEndBehavior == "Loop");
+                CCDWidth = directory.Width;
+                CCDHeight = directory.Height;
+                MaxADU = directory.MaxValue;
                 SensorType = SensorType.Monochrome;
             }
 
@@ -793,8 +824,16 @@
             Device.canPulseGuide = CanPulseGuide;
 
             Device.useCustomImage = useReplayImage;
+            Device.replayMode = ImageMode switch
+            {
+                "Single" => ASCOM.Simulators.ReplaySourceMode.SingleImage,
+                "Directory" => ASCOM.Simulators.ReplaySourceMode.Directory,
+                _ => ASCOM.Simulators.ReplaySourceMode.Normal
+            };
 
             Device.replayImagePath = ReplayImagePath;
+            Device.replayDirectoryPath = ReplayDirectoryPath;
+            Device.replayLoop = ReplayEndBehavior == "Loop";
 
             Device.SaveToProfile();
 
