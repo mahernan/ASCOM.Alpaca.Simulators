@@ -89,6 +89,94 @@ public sealed class PgmReplayTests
         Assert.Equal("False", values["UseCustomImage"]);
     }
 
+    [Fact]
+    public async Task DirectoryReplayUsesOrdinalOrderAdvancesSequentiallyAndLoops()
+    {
+        string directory = CreateDirectory(("b.pgm", 22), ("a.pgm", 11), ("c.pgm", 33));
+        SimCamera camera = CreateDirectoryCamera(directory, loop: true);
+        try
+        {
+            camera.Connected = true;
+            Assert.Equal(11, (await Expose(camera, 0.002))[0, 0]);
+            Assert.Equal(22, (await Expose(camera, 0.002))[0, 0]);
+            Assert.Equal(33, (await Expose(camera, 0.002))[0, 0]);
+            Assert.Equal(11, (await Expose(camera, 0.002))[0, 0]);
+        }
+        finally { camera.Connected = false; Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task RepeatedReadsDoNotAdvanceAndRejectedExposureDoesNotConsumeAFile()
+    {
+        string directory = CreateDirectory(("a.pgm", 17), ("b.pgm", 29));
+        SimCamera camera = CreateDirectoryCamera(directory, loop: true);
+        try
+        {
+            camera.Connected = true;
+            int[,] first = await Expose(camera, 0.002);
+            Assert.Equal(17, first[0, 0]);
+            Assert.Equal(17, Assert.IsType<int[,]>(camera.ImageArray)[0, 0]);
+            Assert.Equal(17, Assert.IsType<int[,]>(camera.ImageArray)[0, 0]);
+            Assert.Throws<ASCOM.InvalidValueException>(() => camera.StartExposure(99999, true));
+            Assert.Equal(29, (await Expose(camera, 0.002))[0, 0]);
+        }
+        finally { camera.Connected = false; Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task StopAtEndRejectsNextExposureAndPreservesLastImage()
+    {
+        string directory = CreateDirectory(("a.pgm", 5), ("b.pgm", 9));
+        SimCamera camera = CreateDirectoryCamera(directory, loop: false);
+        try
+        {
+            camera.Connected = true;
+            await Expose(camera, 0.002);
+            Assert.Equal(9, (await Expose(camera, 0.002))[0, 0]);
+            ASCOM.InvalidOperationException error = Assert.Throws<ASCOM.InvalidOperationException>(() => camera.StartExposure(0.002, true));
+            Assert.Contains("No replay images remain", error.Message);
+            Assert.Equal(9, Assert.IsType<int[,]>(camera.ImageArray)[0, 0]);
+        }
+        finally { camera.Connected = false; Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task ReconnectResetsDirectoryToFirstFile()
+    {
+        string directory = CreateDirectory(("a.pgm", 3), ("b.pgm", 7));
+        SimCamera camera = CreateDirectoryCamera(directory, loop: true);
+        try
+        {
+            camera.Connected = true;
+            Assert.Equal(3, (await Expose(camera, 0.002))[0, 0]);
+            Assert.Equal(7, (await Expose(camera, 0.002))[0, 0]);
+            camera.Connected = false;
+            camera.Connected = true;
+            Assert.Equal(3, (await Expose(camera, 0.002))[0, 0]);
+        }
+        finally { camera.Connected = false; Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void DirectoryValidationRejectsEmptyIncompatibleAndCorruptSources()
+    {
+        string empty = Path.Combine(Path.GetTempPath(), $"camera-replay-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(empty);
+        try { Assert.Throws<InvalidDataException>(() => new PgmDirectoryReplaySource(empty, true)); }
+        finally { Directory.Delete(empty, true); }
+
+        string incompatible = CreateDirectory(("a.pgm", 1));
+        WritePgm(Path.Combine(incompatible, "b.pgm"), 2, 1, 255, 2, 3);
+        try { Assert.Throws<InvalidDataException>(() => new PgmDirectoryReplaySource(incompatible, true)); }
+        finally { Directory.Delete(incompatible, true); }
+
+        string corrupt = Path.Combine(Path.GetTempPath(), $"camera-replay-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(corrupt);
+        File.WriteAllText(Path.Combine(corrupt, "bad.pgm"), "not a pgm");
+        try { Assert.Throws<InvalidDataException>(() => new PgmDirectoryReplaySource(corrupt, true)); }
+        finally { Directory.Delete(corrupt, true); }
+    }
+
     private static async Task<int[,]> Expose(SimCamera camera, double duration)
     {
         camera.StartExposure(duration, true);
@@ -143,6 +231,35 @@ public sealed class PgmReplayTests
         });
         ILogger logger = Proxy<ILogger>.Create((method, args) => Default(method.ReturnType));
         return new SimCamera(0, logger, profile);
+    }
+
+    private static SimCamera CreateDirectoryCamera(string directory, bool loop) => CreateCamera(new Dictionary<string, string>
+    {
+        ["UseCustomImage"] = "true",
+        ["ReplayMode"] = ((int)ReplaySourceMode.Directory).ToString(),
+        ["ReplayDirectory"] = directory,
+        ["ReplayLoop"] = loop.ToString(),
+        ["MinExposure"] = "0.001"
+    });
+
+    private static string CreateDirectory(params (string Name, int Pixel)[] files)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"camera-replay-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        foreach ((string name, int pixel) in files) WritePgm(Path.Combine(directory, name), 1, 1, 255, pixel);
+        return directory;
+    }
+
+    private static void WritePgm(string path, int width, int height, int maxValue, params int[] pixels)
+    {
+        using FileStream stream = File.Create(path);
+        byte[] header = System.Text.Encoding.ASCII.GetBytes($"P5\n{width} {height}\n{maxValue}\n");
+        stream.Write(header);
+        foreach (int pixel in pixels)
+        {
+            if (maxValue >= 256) stream.WriteByte((byte)(pixel >> 8));
+            stream.WriteByte((byte)pixel);
+        }
     }
 
     private static object? Write(Dictionary<string, string> values, string key, string value) { values[key] = value; return null; }

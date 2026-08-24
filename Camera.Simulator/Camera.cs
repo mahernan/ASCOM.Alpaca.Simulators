@@ -120,6 +120,9 @@ namespace ASCOM.Simulators
         private const string STR_HasSubExposure = "HasSubExposure";
         private const string STR_SubExposureInterval = "SubExposureInterval";
         private const string STR_UseCustomImage = "UseCustomImage";
+        private const string STR_ReplayMode = "ReplayMode";
+        private const string STR_ReplayDirectory = "ReplayDirectory";
+        private const string STR_ReplayLoop = "ReplayLoop";
 
         // Cooler configuration strings
         private const string STR_CoolerAmbientTemperature = "CoolerAmbientTemperature";
@@ -289,8 +292,12 @@ namespace ASCOM.Simulators
         // simulation
         internal string imagePath;
         internal string replayImagePath;
+        internal string replayDirectoryPath;
+        internal ReplaySourceMode replayMode;
+        internal bool replayLoop;
         internal bool useCustomImage;
-        private PgmReplaySource replaySource;
+        private IReplaySource replaySource;
+        private PgmReplaySource selectedReplayImage;
 
         internal bool applyNoise;
         private float[,,] imageData;    // room for a 3 plane colour image
@@ -765,6 +772,8 @@ namespace ASCOM.Simulators
                     // these are all possible exposure states so we can abort the exposure
                     exposureTimer.Enabled = false;
                     exposureTimer.Stop();
+                    replaySource?.CancelSelection();
+                    selectedReplayImage = null;
                     cameraState = CameraState.Idle;
                     imageReady = false;
                     break;
@@ -1032,7 +1041,7 @@ namespace ASCOM.Simulators
                 if (value & !connected) // We are connecting and are not already connected
                 {
                     if (useCustomImage)
-                        LoadReplayImage();
+                        LoadReplaySource();
                     else
                         ReadImageFile();
 
@@ -1092,6 +1101,14 @@ namespace ASCOM.Simulators
 
                 if (!connected) // We have just disconnected so free memory used by large objects
                 {
+                    if (useCustomImage && exposureTimer != null)
+                    {
+                        exposureTimer.Enabled = false;
+                        replaySource?.CancelSelection();
+                        selectedReplayImage = null;
+                        cameraState = CameraState.Idle;
+                        imageReady = false;
+                    }
                     imageArray = null;
                     imageArrayVariant = null;
                     imageArrayColour = null;
@@ -1805,7 +1822,6 @@ namespace ASCOM.Simulators
             }
 
             // set up the things to do at the start of the exposure
-            imageReady = false;
             if (hasShutter)
             {
                 darkFrame = !Light;
@@ -1860,6 +1876,10 @@ namespace ASCOM.Simulators
                 }
             }
 
+            if (useCustomImage)
+                selectedReplayImage = replaySource.SelectNext();
+            imageReady = false;
+
             if (exposureTimer == null)
             {
                 exposureTimer = new System.Timers.Timer();
@@ -1880,6 +1900,8 @@ namespace ASCOM.Simulators
             lastExposureDuration = (DateTime.Now - exposureStartTime).TotalSeconds;
             cameraState = CameraState.Download;
             FillImageArray();
+            replaySource?.CompleteSelection();
+            selectedReplayImage = null;
             imageReady = true;
             cameraState = CameraState.Idle;
             Log.LogMessage("ExposureTimer_Elapsed", "done");
@@ -1952,6 +1974,8 @@ namespace ASCOM.Simulators
                     exposureTimer.Enabled = false;
                     lastExposureDuration = (DateTime.Now - exposureStartTime).TotalSeconds;
                     FillImageArray();
+                    replaySource?.CompleteSelection();
+                    selectedReplayImage = null;
                     cameraState = CameraState.Idle;
                     imageReady = true;
                     break;
@@ -2667,6 +2691,12 @@ namespace ASCOM.Simulators
             string defaultImagePath = Path.Combine(fullPath, @"m42-800x600.jpg");
             useCustomImage = Convert.ToBoolean(Profile.GetValue(STR_UseCustomImage, false.ToString()), CultureInfo.InvariantCulture);
             replayImagePath = Profile.GetValue(STR_ImagePath, string.Empty);
+            replayMode = Profile.ContainsKey(STR_ReplayMode)
+                ? (ReplaySourceMode)Convert.ToInt32(Profile.GetValue(STR_ReplayMode, "0"), CultureInfo.InvariantCulture)
+                : useCustomImage ? ReplaySourceMode.SingleImage : ReplaySourceMode.Normal;
+            replayDirectoryPath = Profile.GetValue(STR_ReplayDirectory, string.Empty);
+            replayLoop = Convert.ToBoolean(Profile.GetValue(STR_ReplayLoop, true.ToString()), CultureInfo.InvariantCulture);
+            useCustomImage = replayMode != ReplaySourceMode.Normal;
             imagePath = useCustomImage ? replayImagePath : defaultImagePath;
 
             applyNoise = Convert.ToBoolean(Profile.GetValue(STR_ApplyNoise, "false"), CultureInfo.InvariantCulture);
@@ -2784,6 +2814,9 @@ namespace ASCOM.Simulators
             Profile.WriteValue(STR_ExposureResolution, exposureResolution.ToString(CultureInfo.InvariantCulture));
             Profile.WriteValue(STR_ImagePath, replayImagePath ?? string.Empty);
             Profile.WriteValue(STR_UseCustomImage, useCustomImage.ToString(CultureInfo.InvariantCulture));
+            Profile.WriteValue(STR_ReplayMode, ((int)replayMode).ToString(CultureInfo.InvariantCulture));
+            Profile.WriteValue(STR_ReplayDirectory, replayDirectoryPath ?? string.Empty);
+            Profile.WriteValue(STR_ReplayLoop, replayLoop.ToString(CultureInfo.InvariantCulture));
             Profile.WriteValue(STR_ApplyNoise, applyNoise.ToString(CultureInfo.InvariantCulture));
 
             Profile.WriteValue(STR_CanPulseGuide, canPulseGuide.ToString(CultureInfo.InvariantCulture));
@@ -2875,7 +2908,7 @@ namespace ASCOM.Simulators
             ReadFromProfile();
 
             if (useCustomImage)
-                LoadReplayImage();
+                LoadReplaySource();
             else
                 replaySource = null;
 
@@ -2910,15 +2943,21 @@ namespace ASCOM.Simulators
             Log.LogMessage("InitialiseSimulator", "Set camera temperature to ambient: {0} with cooler constant {1} - Cooler mode: {2}", heatSinkTemperature, coolerConstant, coolerMode);
         }
 
-        internal void LoadReplayImage()
+        internal void LoadReplaySource()
         {
-            replaySource = PgmReplaySource.Load(replayImagePath);
+            replaySource = replayMode == ReplaySourceMode.Directory
+                ? new PgmDirectoryReplaySource(replayDirectoryPath, replayLoop)
+                : new SinglePgmReplaySource(replayImagePath);
+            selectedReplayImage = null;
             cameraXSize = replaySource.Width;
             cameraYSize = replaySource.Height;
             maxADU = replaySource.MaxValue;
             sensorType = SensorType.Monochrome;
             imageData = null;
         }
+
+        // Retained for compatibility with existing tests and callers of the single-image milestone.
+        internal void LoadReplayImage() => LoadReplaySource();
 
         private delegate int PixelProcess(double value);
 
@@ -2931,11 +2970,11 @@ namespace ASCOM.Simulators
 
             if (useCustomImage)
             {
-                if (replaySource == null)
+                if (selectedReplayImage == null)
                     throw new ASCOM.InvalidOperationException("The replay PGM image has not been loaded.");
-                for (int y = 0; y < replaySource.Height; y++)
-                    for (int x = 0; x < replaySource.Width; x++)
-                        imageArray[x, y] = replaySource.Pixels[x, y];
+                for (int y = 0; y < selectedReplayImage.Height; y++)
+                    for (int x = 0; x < selectedReplayImage.Width; x++)
+                        imageArray[x, y] = selectedReplayImage.Pixels[x, y];
                 return;
             }
 
